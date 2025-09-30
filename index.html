@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MealSpark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .step-indicator {
+            transition: all 0.3s ease-in-out;
+        }
+        .step-active {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+        }
+        .step-inactive {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #4b5563; /* gray-600 */
+        }
+        [type="radio"]:checked + label {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        [type="radio"]:checked + label svg {
+            stroke: #4f46e5;
+        }
+        /* Animation for the loading spinner */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .loader-spin {
+            animation: spin 1s linear infinite;
+        }
+        /* Animation for the glowing rainbow text */
+        .surprise-me-option {
+            animation: rainbow-glow 3s linear infinite;
+        }
+        @keyframes rainbow-glow {
+            0% { color: #ff0000; text-shadow: 0 0 5px #ff0000; }
+            15% { color: #ff7f00; text-shadow: 0 0 5px #ff7f00; }
+            30% { color: #ffff00; text-shadow: 0 0 5px #ffff00; }
+            45% { color: #00ff00; text-shadow: 0 0 5px #00ff00; }
+            60% { color: #0000ff; text-shadow: 0 0 5px #0000ff; }
+            75% { color: #4b0082; text-shadow: 0 0 5px #4b0082; }
+            90% { color: #9400d3; text-shadow: 0 0 5px #9400d3; }
+            100% { color: #ff0000; text-shadow: 0 0 5px #ff0000; }
+        }
+        
+        /* Recipe Card Theme */
+        .recipe-card {
+            background-color: #fdfdfa;
+            border: 1px solid #e2e2e2;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        }
+        .recipe-card h2 {
+            font-family: 'Playfair Display', serif;
+            color: #1a202c;
+        }
+        .recipe-card h3 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .recipe-card p, .recipe-card li, .recipe-card strong {
+             font-family: 'Roboto', sans-serif;
+             color: #4a5568;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+    <div id="app" class="min-h-screen flex flex-col items-center justify-center p-4 lg:p-8 transition-all duration-500">
+        
+        <!-- Main Container -->
+        <main class="w-full max-w-4xl mx-auto">
+            
+            <!-- Initial Upload View -->
+            <div id="upload-view">
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">MealSpark</h1>
+                    <p class="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">Got a fridge full of food but no ideas? Let's fix that. <br>Upload a photo of your ingredients and we'll craft the perfect recipe for you.</p>
+                </div>
+                
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-gray-200">
+                    <div id="image-preview-container" class="hidden mb-6 w-full max-w-md mx-auto aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                        <img id="image-preview" src="" alt="Image preview" class="w-full h-full object-cover">
+                    </div>
+
+                    <label for="image-upload" class="relative block w-full border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-indigo-500 cursor-pointer transition-colors duration-200 bg-gray-50">
+                        <div class="flex flex-col items-center justify-center text-gray-500">
+                            <i data-lucide="upload-cloud" class="w-12 h-12 mb-4"></i>
+                            <span class="block font-medium">Click to upload an image</span>
+                            <span class="block text-sm text-gray-400 mt-1">PNG, JPG, or WEBP</span>
+                        </div>
+                        <input id="image-upload" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/webp">
+                    </label>
+
+                    <div id="upload-error" class="text-red-500 text-sm mt-4 text-center hidden"></div>
+                    
+                    <button id="start-customization-btn" class="mt-6 w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:bg-gray-300 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                        Customize Recipe
+                    </button>
+                </div>
+            </div>
+
+            <!-- Customization View -->
+            <div id="customization-view" class="hidden">
+                <div class="text-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-900">Let's Fine-Tune Your Recipe</h2>
+                    <p class="mt-2 text-md text-gray-600">Answer a few questions to get a dish tailored just for you.</p>
+                </div>
+
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-gray-200">
+                    <!-- Step Indicators -->
+                    <div class="flex justify-center items-center mb-8 space-x-2 md:space-x-4">
+                        <div id="step-indicator-1" class="step-indicator step-active w-8 h-8 rounded-full flex items-center justify-center font-bold">1</div>
+                        <div class="flex-1 h-1 bg-gray-200 rounded-full"></div>
+                        <div id="step-indicator-2" class="step-indicator step-inactive w-8 h-8 rounded-full flex items-center justify-center font-bold">2</div>
+                        <div class="flex-1 h-1 bg-gray-200 rounded-full"></div>
+                        <div id="step-indicator-3" class="step-indicator step-inactive w-8 h-8 rounded-full flex items-center justify-center font-bold">3</div>
+                        <div class="flex-1 h-1 bg-gray-200 rounded-full"></div>
+                        <div id="step-indicator-4" class="step-indicator step-inactive w-8 h-8 rounded-full flex items-center justify-center font-bold">4</div>
+                    </div>
+
+                    <!-- Step 1: Diet & Spice -->
+                    <div id="step-1" class="step-content">
+                        <fieldset>
+                            <legend class="text-xl font-semibold mb-4 text-center">Dietary Needs & Spice Level</legend>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h3 class="font-medium text-gray-700 mb-2">Any dietary restrictions?</h3>
+                                    <select id="dietary-restrictions" name="diet" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="none">None</option>
+                                        <option value="vegetarian">Vegetarian</option>
+                                        <option value="vegan">Vegan</option>
+                                        <option value="gluten-free">Gluten-Free</option>
+                                        <option value="dairy-free">Dairy-Free</option>
+                                        <option value="pescatarian">Pescatarian</option>
+                                        <option value="other">Other (please specify)</option>
+                                    </select>
+                                    <input type="text" id="other-dietary-restriction" placeholder="e.g., nut allergy, kosher" class="hidden w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <h3 class="font-medium text-gray-700 mb-2">How spicy do you like it?</h3>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">Mild</span>
+                                        <input id="spice-level" type="range" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                                        <span class="text-sm">Hot</span>
+                                    </div>
+                                    <div class="text-center text-sm text-gray-500 mt-1 capitalize" id="spice-level-label">Medium</div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- Step 2: Flavors & Cuisines -->
+                    <div id="step-2" class="step-content hidden">
+                         <fieldset>
+                            <legend class="text-xl font-semibold mb-4 text-center">Flavors & Cuisines</legend>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                     <h3 class="font-medium text-gray-700 mb-3">What flavors are you craving?</h3>
+                                     <div class="grid grid-cols-2 gap-2">
+                                         <input type="radio" name="flavor-profile" id="flavor-savory" value="savory" class="hidden" checked>
+                                         <label for="flavor-savory" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="beef" class="w-8 h-8 mb-1 text-gray-500"></i> Savory
+                                         </label>
+                                         <input type="radio" name="flavor-profile" id="flavor-sweet" value="sweet" class="hidden">
+                                         <label for="flavor-sweet" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="cake-slice" class="w-8 h-8 mb-1 text-gray-500"></i> Sweet
+                                         </label>
+                                         <input type="radio" name="flavor-profile" id="flavor-spicy" value="spicy" class="hidden">
+                                         <label for="flavor-spicy" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="flame" class="w-8 h-8 mb-1 text-gray-500"></i> Spicy
+                                         </label>
+                                         <input type="radio" name="flavor-profile" id="flavor-umami" value="umami" class="hidden">
+                                         <label for="flavor-umami" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="soup" class="w-8 h-8 mb-1 text-gray-500"></i> Umami
+                                         </label>
+                                     </div>
+                                </div>
+                                <div>
+                                     <h3 class="font-medium text-gray-700 mb-3">Any preferred cuisine?</h3>
+                                     <select id="cuisine" name="cuisine" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="any" class="font-bold surprise-me-option">Surprise Me!</option>
+                                        <option disabled>──────────</option>
+                                        <option value="american">American</option>
+                                        <option value="caribbean">Caribbean</option>
+                                        <option value="chinese">Chinese</option>
+                                        <option value="french">French</option>
+                                        <option value="greek">Greek</option>
+                                        <option value="indian">Indian</option>
+                                        <option value="italian">Italian</option>
+                                        <option value="japanese">Japanese</option>
+                                        <option value="korean">Korean</option>
+                                        <option value="mediterranean">Mediterranean</option>
+                                        <option value="mexican">Mexican</option>
+                                        <option value="middle eastern">Middle Eastern</option>
+                                        <option value="spanish">Spanish</option>
+                                        <option value="thai">Thai</option>
+                                        <option value="vietnamese">Vietnamese</option>
+                                     </select>
+                                </div>
+                            </div>
+                         </fieldset>
+                    </div>
+                    
+                    <!-- Step 3: Meal Type & Time -->
+                    <div id="step-3" class="step-content hidden">
+                         <fieldset>
+                            <legend class="text-xl font-semibold mb-4 text-center">Meal & Timing</legend>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                     <h3 class="font-medium text-gray-700 mb-3">What meal is this for?</h3>
+                                     <div class="grid grid-cols-2 gap-2">
+                                         <input type="radio" name="meal-type" id="meal-breakfast" value="breakfast" class="hidden">
+                                         <label for="meal-breakfast" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="sunrise" class="w-8 h-8 mb-1 text-gray-500"></i> Breakfast
+                                         </label>
+                                         <input type="radio" name="meal-type" id="meal-lunch" value="lunch" class="hidden" checked>
+                                         <label for="meal-lunch" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="sun" class="w-8 h-8 mb-1 text-gray-500"></i> Lunch
+                                         </label>
+                                         <input type="radio" name="meal-type" id="meal-dinner" value="dinner" class="hidden">
+                                         <label for="meal-dinner" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="moon" class="w-8 h-8 mb-1 text-gray-500"></i> Dinner
+                                         </label>
+                                         <input type="radio" name="meal-type" id="meal-snack" value="snack" class="hidden">
+                                         <label for="meal-snack" class="flex flex-col items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition-colors">
+                                             <i data-lucide="cookie" class="w-8 h-8 mb-1 text-gray-500"></i> Snack
+                                         </label>
+                                     </div>
+                                </div>
+                                <div>
+                                     <h3 class="font-medium text-gray-700 mb-3">How much time do you have?</h3>
+                                     <select id="cooking-time" name="time" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="under 15 minutes">Under 15 mins</option>
+                                        <option value="under 30 minutes" selected>Under 30 mins</option>
+                                        <option value="under 1 hour">Under 1 hour</option>
+                                        <option value="more than 1 hour">No rush</option>
+                                     </select>
+                                </div>
+                            </div>
+                         </fieldset>
+                    </div>
+                    
+                    <!-- Step 4: Skill level & Other -->
+                    <div id="step-4" class="step-content hidden">
+                        <fieldset>
+                           <legend class="text-xl font-semibold mb-4 text-center">Final Touches</legend>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               <div>
+                                    <h3 class="font-medium text-gray-700 mb-2">What's your cooking skill level?</h3>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">Novice</span>
+                                        <input id="skill-level" type="range" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                                        <span class="text-sm">Chef</span>
+                                    </div>
+                                    <div class="text-center text-sm text-gray-500 mt-1 capitalize" id="skill-level-label">Confident</div>
+                               </div>
+                               <div>
+                                    <h3 class="font-medium text-gray-700 mb-2">Any specific ingredients to avoid?</h3>
+                                    <input id="avoid-ingredients" type="text" placeholder="e.g., mushrooms, cilantro" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                               </div>
+                           </div>
+                        </fieldset>
+                   </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="mt-8 flex justify-between">
+                        <button id="back-btn" class="bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            Back
+                        </button>
+                        <button id="next-btn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors">
+                            Next
+                        </button>
+                        <button id="generate-btn" class="hidden bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors">
+                            <span class="flex items-center justify-center">
+                                <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i>
+                                Generate Recipe
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading View -->
+            <div id="loading-view" class="hidden text-center">
+                <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200 flex flex-col items-center">
+                    <div class="loader-spin ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4" style="border-top-color: #4f46e5;"></div>
+                    <h2 id="loading-title" class="text-2xl font-bold text-gray-900">Crafting your recipe...</h2>
+                    <p id="loading-text" class="text-gray-600 mt-2">Our AI chef is checking the pantry and sharpening the knives!</p>
+                </div>
+            </div>
+
+            <!-- Recipe View -->
+            <div id="recipe-view" class="hidden">
+                 <div class="recipe-card p-6 md:p-8 rounded-2xl">
+                    <div id="recipe-output" class="prose max-w-none">
+                        <!-- Recipe content will be injected here -->
+                    </div>
+                    <div class="mt-8 flex flex-col sm:flex-row gap-4">
+                        <button id="start-over-btn" class="w-full bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 transition-colors">
+                           Start Over
+                        </button>
+                         <button id="copy-recipe-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="copy" class="w-5 h-5"></i><span id="copy-btn-text">Copy Recipe</span>
+                        </button>
+                    </div>
+                 </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const uploadView = document.getElementById('upload-view');
+            const customizationView = document.getElementById('customization-view');
+            const loadingView = document.getElementById('loading-view');
+            const recipeView = document.getElementById('recipe-view');
+            
+            const imageUpload = document.getElementById('image-upload');
+            const imagePreviewContainer = document.getElementById('image-preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const startCustomizationBtn = document.getElementById('start-customization-btn');
+            const uploadError = document.getElementById('upload-error');
+            
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingText = document.getElementById('loading-text');
+
+            const backBtn = document.getElementById('back-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const generateBtn = document.getElementById('generate-btn');
+            const stepContents = document.querySelectorAll('.step-content');
+            const stepIndicators = document.querySelectorAll('.step-indicator');
+
+            const startOverBtn = document.getElementById('start-over-btn');
+            const copyRecipeBtn = document.getElementById('copy-recipe-btn');
+            const copyBtnText = document.getElementById('copy-btn-text');
+            const recipeOutput = document.getElementById('recipe-output');
+            
+            const dietaryRestrictions = document.getElementById('dietary-restrictions');
+            const otherDietaryRestriction = document.getElementById('other-dietary-restriction');
+            const spiceLevel = document.getElementById('spice-level');
+            const spiceLevelLabel = document.getElementById('spice-level-label');
+            const skillLevel = document.getElementById('skill-level');
+            const skillLevelLabel = document.getElementById('skill-level-label');
+
+            // --- App State ---
+            let currentStep = 1;
+            const totalSteps = 4;
+            let base64ImageData = null;
+
+            // --- Gemini API Configuration ---
+            const API_KEY = "AIzaSyDys-_4aZGm-Bee5ZOwvarBICJlb3tlc3g"; 
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+            
+            const loadingMessages = [
+                "Preheating the AI...",
+                "Finely dicing pixels...",
+                "Consulting ancient cookbooks...",
+                "Simmering the algorithms...",
+                "Whisking up a brilliant idea...",
+                "Garnishing the user interface..."
+            ];
+
+            // --- Utility Functions ---
+            const showView = (view) => {
+                [uploadView, customizationView, loadingView, recipeView].forEach(v => v.classList.add('hidden'));
+                view.classList.remove('hidden');
+            };
+
+            const updateSpiceLabel = () => {
+                const levels = { 1: 'Mild', 2: 'A Little Kick', 3: 'Medium', 4: 'Spicy', 5: 'Very Hot!' };
+                spiceLevelLabel.textContent = levels[spiceLevel.value];
+            };
+
+            const updateSkillLabel = () => {
+                const levels = { 1: 'Novice', 2: 'Home Cook', 3: 'Confident', 4: 'Skilled', 5: 'Gourmet Chef' };
+                skillLevelLabel.textContent = levels[skillLevel.value];
+            };
+
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+            
+            const resetApp = () => {
+                currentStep = 1;
+                base64ImageData = null;
+                imageUpload.value = '';
+                imagePreview.src = '';
+                imagePreviewContainer.classList.add('hidden');
+                startCustomizationBtn.disabled = true;
+                
+                dietaryRestrictions.value = 'none';
+                otherDietaryRestriction.value = '';
+                otherDietaryRestriction.classList.add('hidden');
+                spiceLevel.value = 3;
+                updateSpiceLabel();
+                skillLevel.value = 3;
+                updateSkillLabel();
+                document.querySelector('input[name="flavor-profile"]:checked').checked = false;
+                document.getElementById('flavor-savory').checked = true;
+                document.getElementById('cuisine').value = 'any';
+                document.querySelector('input[name="meal-type"]:checked').checked = false;
+                document.getElementById('meal-lunch').checked = true;
+                document.getElementById('cooking-time').value = 'under 30 minutes';
+                document.getElementById('avoid-ingredients').value = '';
+                copyRecipeBtn.classList.remove('hidden');
+                
+                showView(uploadView);
+            }
+
+            // --- UI Logic ---
+            const updateCustomizationView = () => {
+                stepContents.forEach((step, index) => {
+                    step.classList.toggle('hidden', index + 1 !== currentStep);
+                });
+                stepIndicators.forEach((indicator, index) => {
+                    indicator.classList.toggle('step-active', index < currentStep);
+                    indicator.classList.toggle('step-inactive', index >= currentStep);
+                });
+
+                backBtn.disabled = currentStep === 1;
+                nextBtn.classList.toggle('hidden', currentStep === totalSteps);
+                generateBtn.classList.toggle('hidden', currentStep !== totalSteps);
+            };
+
+            // --- Event Listeners ---
+            dietaryRestrictions.addEventListener('change', () => {
+                otherDietaryRestriction.classList.toggle('hidden', dietaryRestrictions.value !== 'other');
+            });
+
+            imageUpload.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.size > 4 * 1024 * 1024) { // 4MB limit
+                        uploadError.textContent = 'File is too large. Please select an image under 4MB.';
+                        uploadError.classList.remove('hidden');
+                        startCustomizationBtn.disabled = true;
+                        return;
+                    }
+
+                    uploadError.classList.add('hidden');
+                    imagePreview.src = URL.createObjectURL(file);
+                    imagePreviewContainer.classList.remove('hidden');
+                    
+                    try {
+                        base64ImageData = await toBase64(file);
+                        startCustomizationBtn.disabled = false;
+                    } catch (error) {
+                        console.error("Error converting file to base64:", error);
+                        uploadError.textContent = 'Could not process the image. Please try another one.';
+                        uploadError.classList.remove('hidden');
+                        startCustomizationBtn.disabled = true;
+                    }
+                }
+            });
+
+            startCustomizationBtn.addEventListener('click', () => {
+                showView(customizationView);
+                updateCustomizationView();
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentStep < totalSteps) {
+                    currentStep++;
+                    updateCustomizationView();
+                }
+            });
+
+            backBtn.addEventListener('click', () => {
+                if (currentStep > 1) {
+                    currentStep--;
+                    updateCustomizationView();
+                } else {
+                    showView(uploadView);
+                }
+            });
+
+            generateBtn.addEventListener('click', () => generateRecipe());
+            spiceLevel.addEventListener('input', updateSpiceLabel);
+            skillLevel.addEventListener('input', updateSkillLabel);
+            startOverBtn.addEventListener('click', () => resetApp());
+            
+            copyRecipeBtn.addEventListener('click', () => {
+                const recipeText = recipeOutput.innerText;
+                navigator.clipboard.writeText(recipeText).then(() => {
+                    copyBtnText.textContent = 'Copied!';
+                    setTimeout(() => { copyBtnText.textContent = 'Copy Recipe'; }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
+            });
+
+            // --- Gemini API Call Logic ---
+            async function generateRecipe() {
+                if (!base64ImageData) {
+                    alert("No image data found!");
+                    return;
+                }
+                
+                loadingTitle.textContent = "Crafting your recipe...";
+                loadingText.textContent = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+                showView(loadingView);
+
+                let dietPref = dietaryRestrictions.value;
+                if (dietPref === 'other') dietPref = otherDietaryRestriction.value || 'None';
+
+                const preferences = {
+                    diet: dietPref,
+                    spiceLevel: spiceLevelLabel.textContent,
+                    flavorProfile: document.querySelector('input[name="flavor-profile"]:checked').value,
+                    cuisine: document.getElementById('cuisine').value,
+                    mealType: document.querySelector('input[name="meal-type"]:checked').value,
+                    cookingTime: document.getElementById('cooking-time').value,
+                    skillLevel: skillLevelLabel.textContent,
+                    avoid: document.getElementById('avoid-ingredients').value || 'none',
+                };
+
+                const systemPrompt = `You are an expert, creative chef named "MealSpark AI". Your task is to analyze an image of ingredients and generate a single, unique, and delicious recipe based on those ingredients and the user's preferences.
+
+                **Instructions:**
+                1.  **Identify and Use Ingredients:** Identify the ingredients in the image and create a recipe that features them.
+                2.  **Pantry Staples Assumption:** You can assume the user has basic pantry staples: **oil, salt, pepper, and water ONLY**. Do not assume they have other common items like onions, garlic, flour, sugar, or specific spices unless they are visible in the image or part of the recipe you create.
+                3.  **Incorporate Preferences:** Strictly adhere to all user preferences provided.
+                4.  **Be Creative:** Give the recipe a fun, creative name and an enticing description.
+                5.  **Complete Recipe:** Provide a full recipe including prep time, cook time, servings, a list of ingredients (with amounts), and step-by-step instructions.
+                6.  **Output Format:** Respond ONLY with a valid JSON object. Do not include any text, markdown, or code block syntax before or after the JSON.
+                
+                **JSON Schema:**
+                {
+                  "recipeName": "string (Creative and catchy name)",
+                  "description": "string (A short, enticing 1-2 sentence description of the dish)",
+                  "prepTime": "string", "cookTime": "string", "servings": "string",
+                  "ingredients": [{ "amount": "string", "name": "string" }],
+                  "instructions": ["string (Step 1)", "string (Step 2)"]
+                }`;
+                
+                const userPrompt = `Generate a recipe based on the ingredients in the attached image and my preferences:
+                - Dietary Restriction: ${preferences.diet}
+                - Desired Spice Level: ${preferences.spiceLevel}
+                - Flavor Profile: ${preferences.flavorProfile}
+                - Preferred Cuisine: ${preferences.cuisine}
+                - Meal Type: ${preferences.mealType}
+                - Available Cooking Time: ${preferences.cookingTime}
+                - My Skill Level: ${preferences.skillLevel}
+                - Ingredients to Avoid: ${preferences.avoid}`;
+
+                const payload = {
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [
+                        { inlineData: { mimeType: "image/jpeg", data: base64ImageData } },
+                        { text: userPrompt }
+                    ] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                };
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const recipeJson = JSON.parse(candidate.content.parts[0].text);
+                        displayRecipe(recipeJson);
+                    } else { throw new Error("Invalid response structure from API."); }
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    displayError("Sorry, I couldn't cook up a recipe. The kitchen might be closed. Please try again later.");
+                }
+            }
+
+            function displayRecipe(recipe) {
+                recipeOutput.innerHTML = `
+                    <h2 class="text-3xl font-bold mb-2">${recipe.recipeName}</h2>
+                    <p class="text-gray-600 mb-6 italic">${recipe.description}</p>
+                    <div class="flex flex-wrap gap-4 md:gap-8 mb-6 text-sm">
+                        <div class="flex items-center gap-2"><i data-lucide="timer" class="w-5 h-5 text-indigo-500"></i><strong>Prep:</strong> ${recipe.prepTime}</div>
+                        <div class="flex items-center gap-2"><i data-lucide="flame" class="w-5 h-5 text-indigo-500"></i><strong>Cook:</strong> ${recipe.cookTime}</div>
+                        <div class="flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-indigo-500"></i><strong>Serves:</strong> ${recipe.servings}</div>
+                    </div>
+                    <h3 class="text-2xl font-semibold mt-6 mb-4 pb-2">Ingredients</h3>
+                    <ul class="list-disc list-inside space-y-2">
+                        ${recipe.ingredients.map(ing => `<li><strong>${ing.amount}</strong> ${ing.name}</li>`).join('')}
+                    </ul>
+                    <h3 class="text-2xl font-semibold mt-8 mb-4 pb-2">Instructions</h3>
+                    <ol class="list-decimal list-inside space-y-4">
+                        ${recipe.instructions.map(step => `<li>${step}</li>`).join('')}
+                    </ol>
+                `;
+                showView(recipeView);
+                lucide.createIcons();
+            }
+            
+            function displayError(message) {
+                 recipeOutput.innerHTML = `
+                    <div class="text-center">
+                        <i data-lucide="server-crash" class="w-16 h-16 mx-auto text-red-500 mb-4"></i>
+                        <h2 class="text-2xl font-bold mb-2">Oops! Something went wrong.</h2>
+                        <p class="text-gray-600">${message}</p>
+                    </div>
+                `;
+                showView(recipeView);
+                copyRecipeBtn.classList.add('hidden');
+                lucide.createIcons();
+            }
+
+            // --- Initial Setup ---
+            lucide.createIcons();
+            updateSpiceLabel();
+            updateSkillLabel();
+            showView(uploadView);
+        });
+    </script>
+</body>
+</html>
+
