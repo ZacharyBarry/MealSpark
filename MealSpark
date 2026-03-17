@@ -368,9 +368,7 @@
             const totalSteps = 4;
             let base64ImageData = null;
 
-            // --- Gemini API Configuration ---
-            const API_KEY = ""; 
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+            // --- Gemini API Configuration --- REMOVED SINCE IT NOT SECURE
             
             const loadingMessages = [
                 "Preheating the AI...",
@@ -577,7 +575,7 @@
                 };
 
                 try {
-                    const response = await fetch(API_URL, {
+                    const response = await fetch('/api/gemini', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
