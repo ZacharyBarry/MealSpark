@@ -395,12 +395,38 @@
                 skillLevelLabel.textContent = levels[skillLevel.value];
             };
 
-            const toBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            const compressImage = (file, maxWidth = 1024, quality = 0.7) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+            
+                            // Scale down the image if it's too wide
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+            
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+            
+                            // Export as a lightweight JPEG base64 string
+                            const compressedBase64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+                            resolve(compressedBase64);
+                        };
+                        img.onerror = error => reject(error);
+                    };
+                    reader.onerror = error => reject(error);
+                });
+            };
             
             const resetApp = () => {
                 currentStep = 1;
@@ -452,22 +478,17 @@
             imageUpload.addEventListener('change', async (event) => {
                 const file = event.target.files[0];
                 if (file) {
-                    if (file.size > 4 * 1024 * 1024) { // 4MB limit
-                        uploadError.textContent = 'File is too large. Please select an image under 4MB.';
-                        uploadError.classList.remove('hidden');
-                        startCustomizationBtn.disabled = true;
-                        return;
-                    }
-
+                    // Immediately show the preview so the app feels fast
                     uploadError.classList.add('hidden');
                     imagePreview.src = URL.createObjectURL(file);
                     imagePreviewContainer.classList.remove('hidden');
                     
                     try {
-                        base64ImageData = await toBase64(file);
+                        // Compress the image down to max 1024px width and 70% quality
+                        base64ImageData = await compressImage(file, 1024, 0.7);
                         startCustomizationBtn.disabled = false;
                     } catch (error) {
-                        console.error("Error converting file to base64:", error);
+                        console.error("Error compressing file:", error);
                         uploadError.textContent = 'Could not process the image. Please try another one.';
                         uploadError.classList.remove('hidden');
                         startCustomizationBtn.disabled = true;
