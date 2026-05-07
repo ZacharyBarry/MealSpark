@@ -484,9 +484,19 @@
                     imagePreviewContainer.classList.remove('hidden');
                     
                     try {
-                        // Compress the image down to max 1024px width and 70% quality
-                        base64ImageData = await compressImage(file, 1024, 0.7);
-                        startCustomizationBtn.disabled = false;
+                        // Aggressively compress to max 800px width and 60% quality to avoid Vercel 4MB limit
+                        base64ImageData = await compressImage(file, 800, 0.6);
+                        
+                        // Optional safeguard: Check if the string is still too large before enabling the button
+                        const stringSizeInMB = (base64ImageData.length * (3/4)) / (1024 * 1024);
+                        if (stringSizeInMB > 3.8) {
+                            uploadError.textContent = 'Image is too complex. Please take a simpler photo.';
+                            uploadError.classList.remove('hidden');
+                            startCustomizationBtn.disabled = true;
+                        } else {
+                            startCustomizationBtn.disabled = false;
+                        }
+                    }
                     } catch (error) {
                         console.error("Error compressing file:", error);
                         uploadError.textContent = 'Could not process the image. Please try another one.';
