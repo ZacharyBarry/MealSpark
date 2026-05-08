@@ -5,7 +5,9 @@
 
 MealSpark is an AI-powered web app designed to cure "fridge blindness." Snap a photo of the ingredients you have, and it instantly crafts a custom recipe to turn what is in your fridge into an actual meal.
 
-![MealSpark Demo](demo.gif)
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/aa391b6f-bb45-433b-abc9-0a52b8f73213" width="300" controls></video>
+</div>
 
 ## ✨ How It Works
 1. **Upload:** Drop in a photo of your available ingredients.
