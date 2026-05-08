@@ -108,7 +108,7 @@
                             <span class="block font-medium">Click to upload an image</span>
                             <span class="block text-sm text-gray-400 mt-1">PNG, JPG, or WEBP</span>
                         </div>
-                        <input id="image-upload" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/webp">
+                        <input id="image-upload" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/webp, .heic, image/heic">
                     </label>
 
                     <div id="upload-error" class="text-red-500 text-sm mt-4 text-center hidden"></div>
@@ -395,78 +395,69 @@
                 skillLevelLabel.textContent = levels[skillLevel.value];
             };
 
-            const compressImage = (file, maxBase64SizeInMB = 3.9) => {
+            const compressImage = (file) => {
                 return new Promise((resolve, reject) => {
-                    // Convert MB to exact byte count for the Base64 string
-                    const maxBytes = maxBase64SizeInMB * 1024 * 1024;
-                    const reader = new FileReader();
+                    // Target exactly 3.8MB to leave room for the rest of the JSON payload
+                    const maxBase64Length = 3.8 * 1024 * 1024; 
+                    const img = new Image();
+                    
+                    img.src = URL.createObjectURL(file);
+                    
+                    img.onload = () => {
+                        URL.revokeObjectURL(img.src); // Free up browser memory
+                        
+                        const originalWidth = img.width;
+                        const originalHeight = img.height;
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
             
-                    reader.readAsDataURL(file);
-                    reader.onload = (event) => {
-                        const initialBase64 = event.target.result;
-                        const originalData = initialBase64.split(',')[1];
+                        // Helper function to quickly test a specific size and quality
+                        const attemptCompression = (scale, quality) => {
+                            const w = Math.round(originalWidth * scale);
+                            const h = Math.round(originalHeight * scale);
+                            canvas.width = w;
+                            canvas.height = h;
+                            ctx.drawImage(img, 0, 0, w, h);
+                            return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+                        };
             
-                        // 1. THE BYPASS: If the original file is already under the limit, 
-                        // don't touch it. Return it exactly as is.
-                        if (originalData.length <= maxBytes) {
-                            console.log("Image under limit. Skipping compression.");
-                            return resolve(originalData);
+                        let currentScale = 1.0;
+                        let currentQuality = 0.9;
+                        
+                        // Baseline test: Full resolution, 90% quality
+                        let resultBase64 = attemptCompression(currentScale, currentQuality);
+            
+                        // 1. THE BYPASS: If it already fits, ship it immediately
+                        if (resultBase64.length <= maxBase64Length) {
+                            console.log(`Original fit perfectly: ${(resultBase64.length / (1024*1024)).toFixed(2)} MB`);
+                            return resolve(resultBase64);
                         }
             
-                        // 2. THE COMPRESSOR: If it's too big, start dialing it back.
-                        console.log("Image over limit. Starting dynamic compression...");
-                        const img = new Image();
-                        img.src = initialBase64;
+                        // 2. THE PRECISION LOOP: Gently step down until it exactly fits
+                        console.log("Image over limit. Finding optimal compression...");
                         
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            let width = img.width;
-                            let height = img.height;
-            
-                            // Helper function to quickly test different qualities/sizes
-                            const attemptCompression = (w, h, quality) => {
-                                canvas.width = w;
-                                canvas.height = h;
-                                ctx.drawImage(img, 0, 0, w, h);
-                                return canvas.toDataURL('image/jpeg', quality).split(',')[1];
-                            };
-            
-                            let resultBase64 = '';
-                            let isUnderLimit = false;
-            
-                            // Phase 1: Try dropping the JPEG quality step-by-step (keeps full resolution)
-                            let currentQuality = 0.9;
-                            while (currentQuality >= 0.3) {
-                                resultBase64 = attemptCompression(width, height, currentQuality);
-                                if (resultBase64.length <= maxBytes) {
-                                    isUnderLimit = true;
-                                    break;
-                                }
-                                currentQuality -= 0.1; // Drop quality by 10% and try again
+                        while (resultBase64.length > maxBase64Length) {
+                            // Try dropping the visual quality first to save resolution
+                            if (currentQuality > 0.6) {
+                                currentQuality -= 0.1;
+                            } 
+                            // If quality gets too low, shrink the physical size by 15% and reset quality
+                            else {
+                                currentScale -= 0.15;
+                                currentQuality = 0.8; 
                             }
             
-                            // Phase 2: Emergency fallback. If quality 0.3 is STILL too massive, 
-                            // it means the photo is 4K+. Start scaling down the actual dimensions.
-                            if (!isUnderLimit) {
-                                let scale = 0.8;
-                                while (scale >= 0.3) {
-                                    const newWidth = Math.round(width * scale);
-                                    const newHeight = Math.round(height * scale);
-                                    // Use a decent quality, just shrink the canvas
-                                    resultBase64 = attemptCompression(newWidth, newHeight, 0.7);
-                                    if (resultBase64.length <= maxBytes) {
-                                        break;
-                                    }
-                                    scale -= 0.15; // Shrink by 15% and try again
-                                }
-                            }
+                            // Extreme failsafe to prevent browser freezing on broken files
+                            if (currentScale < 0.1) break;
             
-                            resolve(resultBase64);
-                        };
-                        img.onerror = error => reject(error);
+                            resultBase64 = attemptCompression(currentScale, currentQuality);
+                        }
+            
+                        console.log(`Optimized to exact target: ${(resultBase64.length / (1024*1024)).toFixed(2)} MB`);
+                        resolve(resultBase64);
                     };
-                    reader.onerror = error => reject(error);
+                    
+                    img.onerror = () => reject("Failed to load image");
                 });
             };
             
