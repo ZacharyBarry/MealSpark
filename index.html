@@ -517,11 +517,10 @@
                     imagePreviewContainer.classList.remove('hidden');
                     
                     try {
-                        // This will now dynamically ensure it's under 3.9MB
+                        // This will now dynamically ensure it's under 3.8MB
                         base64ImageData = await compressImage(file);
                         startCustomizationBtn.disabled = false;
-                    }
-                    } catch (error) {
+                    } catch (error) { 
                         console.error("Error compressing file:", error);
                         uploadError.textContent = 'Could not process the image. Please try another one.';
                         uploadError.classList.remove('hidden');
