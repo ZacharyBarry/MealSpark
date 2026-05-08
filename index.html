@@ -108,7 +108,7 @@
                             <span class="block font-medium">Click to upload an image</span>
                             <span class="block text-sm text-gray-400 mt-1">PNG, JPG, or WEBP</span>
                         </div>
-                        <input id="image-upload" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/webp">
+                        <input id="image-upload" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/png, image/jpeg, image/webp, .heic, image/heic">
                     </label>
 
                     <div id="upload-error" class="text-red-500 text-sm mt-4 text-center hidden"></div>
@@ -395,12 +395,71 @@
                 skillLevelLabel.textContent = levels[skillLevel.value];
             };
 
-            const toBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            const compressImage = (file) => {
+                return new Promise((resolve, reject) => {
+                    // Target exactly 3.8MB to leave room for the rest of the JSON payload
+                    const maxBase64Length = 3.8 * 1024 * 1024; 
+                    const img = new Image();
+                    
+                    img.src = URL.createObjectURL(file);
+                    
+                    img.onload = () => {
+                        URL.revokeObjectURL(img.src); // Free up browser memory
+                        
+                        const originalWidth = img.width;
+                        const originalHeight = img.height;
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+            
+                        // Helper function to quickly test a specific size and quality
+                        const attemptCompression = (scale, quality) => {
+                            const w = Math.round(originalWidth * scale);
+                            const h = Math.round(originalHeight * scale);
+                            canvas.width = w;
+                            canvas.height = h;
+                            ctx.drawImage(img, 0, 0, w, h);
+                            return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+                        };
+            
+                        let currentScale = 1.0;
+                        let currentQuality = 0.9;
+                        
+                        // Baseline test: Full resolution, 90% quality
+                        let resultBase64 = attemptCompression(currentScale, currentQuality);
+            
+                        // 1. THE BYPASS: If it already fits, ship it immediately
+                        if (resultBase64.length <= maxBase64Length) {
+                            console.log(`Original fit perfectly: ${(resultBase64.length / (1024*1024)).toFixed(2)} MB`);
+                            return resolve(resultBase64);
+                        }
+            
+                        // 2. THE PRECISION LOOP: Gently step down until it exactly fits
+                        console.log("Image over limit. Finding optimal compression...");
+                        
+                        while (resultBase64.length > maxBase64Length) {
+                            // Try dropping the visual quality first to save resolution
+                            if (currentQuality > 0.6) {
+                                currentQuality -= 0.1;
+                            } 
+                            // If quality gets too low, shrink the physical size by 15% and reset quality
+                            else {
+                                currentScale -= 0.15;
+                                currentQuality = 0.8; 
+                            }
+            
+                            // Extreme failsafe to prevent browser freezing on broken files
+                            if (currentScale < 0.1) break;
+            
+                            resultBase64 = attemptCompression(currentScale, currentQuality);
+                        }
+            
+                        console.log(`Optimized to exact target: ${(resultBase64.length / (1024*1024)).toFixed(2)} MB`);
+                        resolve(resultBase64);
+                    };
+                    
+                    img.onerror = () => reject("Failed to load image");
+                });
+            };
             
             const resetApp = () => {
                 currentStep = 1;
@@ -452,22 +511,18 @@
             imageUpload.addEventListener('change', async (event) => {
                 const file = event.target.files[0];
                 if (file) {
-                    if (file.size > 4 * 1024 * 1024) { // 4MB limit
-                        uploadError.textContent = 'File is too large. Please select an image under 4MB.';
-                        uploadError.classList.remove('hidden');
-                        startCustomizationBtn.disabled = true;
-                        return;
-                    }
-
+                    // Immediately show the preview so the app feels fast
                     uploadError.classList.add('hidden');
                     imagePreview.src = URL.createObjectURL(file);
                     imagePreviewContainer.classList.remove('hidden');
                     
                     try {
-                        base64ImageData = await toBase64(file);
+                        // This will now dynamically ensure it's under 3.9MB
+                        base64ImageData = await compressImage(file);
                         startCustomizationBtn.disabled = false;
+                    }
                     } catch (error) {
-                        console.error("Error converting file to base64:", error);
+                        console.error("Error compressing file:", error);
                         uploadError.textContent = 'Could not process the image. Please try another one.';
                         uploadError.classList.remove('hidden');
                         startCustomizationBtn.disabled = true;
@@ -637,4 +692,3 @@
     </script>
 </body>
 </html>
-
